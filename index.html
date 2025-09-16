@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Uttar Bangla loko Sanskriti - Image Hosting</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      user-select: none;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+
+  <!-- Navbar -->
+  <nav class="bg-gray-800 p-4 flex justify-between items-center">
+    <div class="text-2xl font-bold">Uttar Bangla loko Sanskriti</div>
+    <div id="user-info" class="flex items-center space-x-4">
+      <span id="username-display" class="hidden"></span>
+      <button id="login-btn" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700">Login</button>
+      <button id="logout-btn" class="bg-red-600 px-4 py-2 rounded hover:bg-red-700 hidden">Logout</button>
+    </div>
+  </nav>
+
+  <!-- Login Form Modal -->
+  <div id="login-form" class="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center hidden z-50">
+    <div class="bg-gray-800 text-gray-200 p-8 rounded shadow-lg w-80">
+      <h2 class="text-xl mb-4 font-semibold">Login</h2>
+      <input
+        type="text"
+        id="login-username"
+        placeholder="Username"
+        class="w-full p-2 mb-2 bg-gray-700 rounded border border-gray-600 focus:outline-none"
+        autocomplete="off"
+      />
+      <input
+        type="password"
+        id="login-password"
+        placeholder="Password"
+        class="w-full p-2 mb-4 bg-gray-700 rounded border border-gray-600 focus:outline-none"
+        autocomplete="off"
+      />
+      <div class="flex justify-end space-x-2">
+        <button id="login-submit" class="bg-green-600 px-4 py-2 rounded hover:bg-green-700">Submit</button>
+        <button id="login-cancel" class="bg-gray-600 px-4 py-2 rounded hover:bg-gray-500">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Images container -->
+  <main
+    id="images-container"
+    class="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 flex-grow overflow-auto"
+  >
+    <!-- Images will load here -->
+  </main>
+
+  <!-- Fullscreen modal -->
+  <div
+    id="modal"
+    class="fixed inset-0 bg-black bg-opacity-90 flex justify-center items-center hidden z-50"
+  >
+    <div class="relative max-w-full max-h-full p-4">
+      <img id="modal-image" src="" alt="" class="max-w-full max-h-[90vh] rounded shadow-lg" />
+      <div class="absolute top-2 right-2 space-x-2 flex">
+        <button
+          id="copy-url-btn"
+          class="bg-gray-700 text-gray-200 px-3 py-1 rounded hover:bg-gray-600"
+          title="Copy Raw URL"
+        >
+          Copy Raw URL
+        </button>
+        <button
+          id="close-modal-btn"
+          class="bg-red-700 text-gray-100 px-3 py-1 rounded hover:bg-red-600"
+          title="Close"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==== Configuration ====
+    const GITHUB_OWNER = 'aynaghor-studio'; // Replace with your GitHub username/org
+    const GITHUB_REPO = 'uls_gallery'; // Replace with your repo name
+    const IMAGE_FOLDER = 'images'; // Folder inside repo with images
+    const GITHUB_BRANCH = 'main'; // Branch name
+
+    // ==== Utility functions ====
+
+    async function fetchImageList() {
+      const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/trees/${GITHUB_BRANCH}?recursive=1`;
+      const headers = {
+        Accept: 'application/vnd.github.v3+json',
+      };
+
+      try {
+        const resp = await fetch(apiUrl, { headers });
+        if (!resp.ok) {
+          console.error('GitHub API error', resp.status, await resp.text());
+          return [];
+        }
+        const data = await resp.json();
+        if (!data.tree) return [];
+        const imgs = data.tree.filter((item) => {
+          if (item.type !== 'blob') return false;
+          const lower = item.path.toLowerCase();
+          return (
+            (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png')) &&
+            lower.startsWith(IMAGE_FOLDER + '/')
+          );
+        });
+        const rawBase = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/`;
+        return imgs.map((item) => ({
+          path: item.path,
+          url: rawBase + item.path,
+        }));
+      } catch (error) {
+        console.error('Fetch error', error);
+        return [];
+      }
+    }
+
+    // ==== DOM helpers ====
+
+    function createImageCard(imgObj) {
+      const container = document.createElement('div');
+      container.className =
+        'cursor-pointer overflow-hidden rounded-lg bg-gray-800 hover:bg-gray-700 shadow-md';
+
+      const img = document.createElement('img');
+      img.src = imgObj.url;
+      img.alt = imgObj.path;
+      img.className = 'w-full h-48 object-cover select-none';
+
+      container.appendChild(img);
+
+      container.addEventListener('click', () => {
+        openModal(imgObj.url);
+      });
+
+      return container;
+    }
+
+    function openModal(url) {
+      const modal = document.getElementById('modal');
+      const modalImage = document.getElementById('modal-image');
+      modalImage.src = url;
+      modal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('modal');
+      modal.classList.add('hidden');
+      const modalImage = document.getElementById('modal-image');
+      modalImage.src = '';
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          alert('Raw URL copied to clipboard!');
+        })
+        .catch((err) => {
+          console.error('Could not copy: ', err);
+        });
+    }
+
+    // ==== Simple login system ====
+
+    const DEMO_USER = 'user';
+    const DEMO_PASS = 'password';
+
+    function showLoginForm() {
+      document.getElementById('login-form').classList.remove('hidden');
+      document.getElementById('login-username').focus();
+    }
+
+    function hideLoginForm() {
+      document.getElementById('login-form').classList.add('hidden');
+      document.getElementById('login-username').value = '';
+      document.getElementById('login-password').value = '';
+    }
+
+    function setLoggedIn(username) {
+      localStorage.setItem('loggedInUser', username);
+      onLoginChange();
+    }
+
+    function logout() {
+      localStorage.removeItem('loggedInUser');
+      onLoginChange();
+    }
+
+    function onLoginChange() {
+      const user = localStorage.getItem('loggedInUser');
+      const loginBtn = document.getElementById('login-btn');
+      const logoutBtn = document.getElementById('logout-btn');
+      const usernameDisplay = document.getElementById('username-display');
+      if (user) {
+        usernameDisplay.textContent = user;
+        usernameDisplay.classList.remove('hidden');
+        loginBtn.classList.add('hidden');
+        logoutBtn.classList.remove('hidden');
+        loadImages(); // load images only if logged in
+      } else {
+        usernameDisplay.classList.add('hidden');
+        loginBtn.classList.remove('hidden');
+        logoutBtn.classList.add('hidden');
+        document.getElementById('images-container').innerHTML = '';
+      }
+    }
+
+    // ==== Disable right click ====
+
+    function disableRightClick() {
+      document.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+      });
+    }
+
+    // ==== Devtools detection (basic) ====
+
+    function detectDevTools(openedCallback) {
+      const threshold = 160;
+      setInterval(() => {
+        const widthDiff = window.outerWidth - window.innerWidth;
+        const heightDiff = window.outerHeight - window.innerHeight;
+        if (widthDiff > threshold || heightDiff > threshold) {
+          openedCallback();
+        }
+      }, 1000);
+    }
+
+    function blockInspect() {
+      detectDevTools(() => {
+        document.body.innerHTML =
+          '<h1 class="text-center text-red-500 text-3xl mt-20">Developer tools are not allowed</h1>';
+      });
+
+      // Prevent common shortcuts
+      document.addEventListener('keydown', (e) => {
+        // F12
+        if (e.keyCode === 123) e.preventDefault();
+        // Ctrl+Shift+I / Cmd+Option+I
+        if ((e.ctrlKey && e.shiftKey && e.keyCode === 73) || (e.metaKey && e.altKey && e.keyCode === 73))
+          e.preventDefault();
+        // Ctrl+U
+        if (e.ctrlKey && e.keyCode === 85) e.preventDefault();
+      });
+    }
+
+    // ==== Load and render images ====
+
+    async function loadImages() {
+      const images = await fetchImageList();
+      const container = document.getElementById('images-container');
+      container.innerHTML = '';
+      if (images.length === 0) {
+        container.innerHTML =
+          '<p class="text-center text-gray-400 col-span-full">No images found in the repository folder.</p>';
+        return;
+      }
+      images.forEach((imgObj) => {
+        const card = createImageCard(imgObj);
+        container.appendChild(card);
+      });
+    }
+
+    // ==== Initialization ====
+
+    document.addEventListener('DOMContentLoaded', () => {
+      disableRightClick();
+      blockInspect();
+
+      document.getElementById('login-btn').addEventListener('click', showLoginForm);
+      document.getElementById('login-cancel').addEventListener('click', hideLoginForm);
+      document.getElementById('logout-btn').addEventListener('click', logout);
+      document.getElementById('login-submit').addEventListener('click', () => {
+        const u = document.getElementById('login-username').value.trim();
+        const p = document.getElementById('login-password').value.trim();
+        if (u === DEMO_USER && p === DEMO_PASS) {
+          setLoggedIn(u);
+          hideLoginForm();
+        } else {
+          alert('Invalid credentials');
+        }
+      });
+
+      document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+      document.getElementById('copy-url-btn').addEventListener('click', () => {
+        const modalImage = document.getElementById('modal-image');
+        if (modalImage.src) {
+          copyToClipboard(modalImage.src);
+        }
+      });
+
+      onLoginChange();
+    });
+  </script>
+</body>
+</html>
