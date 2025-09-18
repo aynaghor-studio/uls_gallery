@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" >
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -84,17 +84,18 @@
 
   <script>
     // ==== Configuration ====
-    const GITHUB_OWNER = 'aynaghor-studio'; // Replace with your GitHub username/org
-    const GITHUB_REPO = 'uls_gallery'; // Replace with your repo name
-    const IMAGE_FOLDER = 'images'; // Folder inside repo with images
-    const GITHUB_BRANCH = 'main'; // Branch name
+    const GITHUB_OWNER = 'aynaghor-studio';
+    const GITHUB_REPO = 'uls_gallery';
+    const IMAGE_FOLDER = 'images';
+    const GITHUB_BRANCH = 'main';
+    const GITHUB_TOKEN = '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'; // ⚠️ WARNING: Don't expose in production!
 
-    // ==== Utility functions ====
-
+    // ==== Fetch Images ====
     async function fetchImageList() {
       const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/trees/${GITHUB_BRANCH}?recursive=1`;
       const headers = {
         Accept: 'application/vnd.github.v3+json',
+        Authorization: `token ${GITHUB_TOKEN}`
       };
 
       try {
@@ -105,6 +106,7 @@
         }
         const data = await resp.json();
         if (!data.tree) return [];
+
         const imgs = data.tree.filter((item) => {
           if (item.type !== 'blob') return false;
           const lower = item.path.toLowerCase();
@@ -113,6 +115,7 @@
             lower.startsWith(IMAGE_FOLDER + '/')
           );
         });
+
         const rawBase = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/`;
         return imgs.map((item) => ({
           path: item.path,
@@ -124,8 +127,7 @@
       }
     }
 
-    // ==== DOM helpers ====
-
+    // ==== DOM Functions ====
     function createImageCard(imgObj) {
       const container = document.createElement('div');
       container.className =
@@ -160,18 +162,12 @@
     }
 
     function copyToClipboard(text) {
-      navigator.clipboard
-        .writeText(text)
-        .then(() => {
-          alert('Raw URL copied to clipboard!');
-        })
-        .catch((err) => {
-          console.error('Could not copy: ', err);
-        });
+      navigator.clipboard.writeText(text)
+        .then(() => alert('Raw URL copied to clipboard!'))
+        .catch((err) => console.error('Copy failed', err));
     }
 
-    // ==== Simple login system ====
-
+    // ==== Simple Login ====
     const DEMO_USER = 'user';
     const DEMO_PASS = 'password';
 
@@ -206,7 +202,7 @@
         usernameDisplay.classList.remove('hidden');
         loginBtn.classList.add('hidden');
         logoutBtn.classList.remove('hidden');
-        loadImages(); // load images only if logged in
+        loadImages();
       } else {
         usernameDisplay.classList.add('hidden');
         loginBtn.classList.remove('hidden');
@@ -215,47 +211,7 @@
       }
     }
 
-    // ==== Disable right click ====
-
-    function disableRightClick() {
-      document.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-      });
-    }
-
-    // ==== Devtools detection (basic) ====
-
-    function detectDevTools(openedCallback) {
-      const threshold = 160;
-      setInterval(() => {
-        const widthDiff = window.outerWidth - window.innerWidth;
-        const heightDiff = window.outerHeight - window.innerHeight;
-        if (widthDiff > threshold || heightDiff > threshold) {
-          openedCallback();
-        }
-      }, 1000);
-    }
-
-    function blockInspect() {
-      detectDevTools(() => {
-        document.body.innerHTML =
-          '<h1 class="text-center text-red-500 text-3xl mt-20">Developer tools are not allowed</h1>';
-      });
-
-      // Prevent common shortcuts
-      document.addEventListener('keydown', (e) => {
-        // F12
-        if (e.keyCode === 123) e.preventDefault();
-        // Ctrl+Shift+I / Cmd+Option+I
-        if ((e.ctrlKey && e.shiftKey && e.keyCode === 73) || (e.metaKey && e.altKey && e.keyCode === 73))
-          e.preventDefault();
-        // Ctrl+U
-        if (e.ctrlKey && e.keyCode === 85) e.preventDefault();
-      });
-    }
-
-    // ==== Load and render images ====
-
+    // ==== Load Images ====
     async function loadImages() {
       const images = await fetchImageList();
       const container = document.getElementById('images-container');
@@ -271,12 +227,8 @@
       });
     }
 
-    // ==== Initialization ====
-
+    // ==== Init ====
     document.addEventListener('DOMContentLoaded', () => {
-      disableRightClick();
-      blockInspect();
-
       document.getElementById('login-btn').addEventListener('click', showLoginForm);
       document.getElementById('login-cancel').addEventListener('click', hideLoginForm);
       document.getElementById('logout-btn').addEventListener('click', logout);
